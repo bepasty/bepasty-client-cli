@@ -62,7 +62,7 @@ def main(fileobj, fname, ftype):
         if not trans_id == '':
             headers['Transaction-ID'] = trans_id
 
-        response = requests.post('http://localhost:5000/api/v1/items', data=payload, headers=headers, auth=('user','foo'))
+        response = requests.post('http://localhost:5000/apis/rest/items', data=payload, headers=headers, auth=('user','foofoo'))
         offset = offset + raw_data_size
         if response.headers['Transaction-ID']:
             trans_id = response.headers['Transaction-ID']
