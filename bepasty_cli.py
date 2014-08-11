@@ -7,16 +7,18 @@ bepasty-server commandline interface
 
 import os, sys, base64, pprint
 from mimetypes import guess_type
+#from __future__ import print_function
 import requests
 
 import click
 
 @click.command()
+@click.option('-p', '--pass', 'token', default='', help='The token to authenticate yourself with the bepasty server')
 @click.option('-f', '--file', 'fileobj', help='File to be uploaded to a bepasty-server. If this is omitted stdin is read.')
 @click.option('-n', '--name', 'fname', help='Filename for piped input.')
 @click.option('-t', '--type', 'ftype', help='Filetype for piped input. Specified as file extension. E.g. png, txt, mp3...'
                                 + ' If omitted, filetype will be destinguised by filename')
-def main(fileobj, fname, ftype):
+def main(token, fileobj, fname, ftype):
 
     pretty = pprint.PrettyPrinter()
 
@@ -62,8 +64,18 @@ def main(fileobj, fname, ftype):
         if not trans_id == '':
             headers['Transaction-ID'] = trans_id
 
-        response = requests.post('http://localhost:5000/apis/rest/items', data=payload, headers=headers, auth=('user','foofoo'))
+        response = requests.post('http://localhost:5000/apis/rest/items', data=payload, headers=headers, auth=('user',token))
         offset = offset + raw_data_size
+        if not response.status_code in [200, 201]:
+            print 'An error ocurred: %s - %s' % (response.text, response.status_code)
+            return
+        elif response.status_code == 200:
+            print '\r%d Bytes already uploaded. That makes %d %% from %d Bytes' % ((offset/8), ((offset*100)/filesize), (filesize/8)),
+        elif response.status_code == 201:
+            print '\nFile sucessfully uploaded and can be found here:'
+            print response.headers['Content-Location']
+
+
         if response.headers['Transaction-ID']:
             trans_id = response.headers['Transaction-ID']
 
