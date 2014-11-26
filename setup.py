@@ -16,6 +16,15 @@ setup(
         "Programming Language :: Python :: 2.7",
         "Topic :: Communications :: File Sharing",
         "Topic :: System :: Archiving :: Backup"
-    ]
+    ],
+    install_requires=(
+        'click',
+        'requests',
+    ),
+    entry_points={
+        'console_scripts':[
+            'bepasty-cli = bepasty_cli.cli:main'
+        ]
+    }
 
 )
