@@ -88,6 +88,7 @@ def main(token, fileobj, fname,url, ftype):
         elif response.status_code == 201:
             print('\nFile sucessfully uploaded and can be found here:')
             print('{}{}'.format(url,response.headers['Content-Location']))
+            print('{}/{}'.format(url,response.headers['Content-Location'].split('/')[-1]))
 
 
         if response.headers['Transaction-ID']:
