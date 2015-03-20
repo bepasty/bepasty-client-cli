@@ -20,7 +20,8 @@ import click
 @click.argument('fileobj',nargs=1,required=False)
 @click.option('-p', '--pass', 'token', default='', help='The token to authenticate yourself with the bepasty server')
 @click.option('-n', '--name', 'fname', help='Filename for piped input.')
-@click.option('-u','--url','url', help='URL to the base installation of bepasty')
+@click.option('-u','--url','url', help='URL to the base installation of bepasty',
+        default='http://localhost:5000')
 @click.option('-t', '--type', 'ftype', help='Filetype for piped input. Specified as file extension. E.g. png, txt, mp3...'
                                 + ' If omitted, filetype will be destinguised by filename')
 def main(token, fileobj, fname,url, ftype):
