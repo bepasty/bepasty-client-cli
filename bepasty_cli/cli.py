@@ -8,23 +8,40 @@ bepasty-server commandline interface
 
 # for grandpa python
 from __future__ import print_function
-import os, sys, base64
+import os
+import sys
+import base64
 from mimetypes import guess_type
 import requests
 
-#from tempfile import NamedTemporaryFile
+# from tempfile import NamedTemporaryFile
 
 import click
 
+
 @click.command()
-@click.argument('fileobj',nargs=1,required=False)
-@click.option('-p', '--pass', 'token', default='', help='The token to authenticate yourself with the bepasty server')
+@click.argument('fileobj', nargs=1, required=False)
+@click.option(
+    '-p',
+    '--pass',
+    'token',
+    default='',
+    help='The token to authenticate yourself with the bepasty server')
 @click.option('-n', '--name', 'fname', help='Filename for piped input.')
-@click.option('-u','--url','url', help='URL to the base installation of bepasty',
-        default='http://localhost:5000')
-@click.option('-t', '--type', 'ftype', help='Filetype for piped input. Specified as file extension. E.g. png, txt, mp3...'
-                                + ' If omitted, filetype will be destinguised by filename')
-def main(token, fileobj, fname,url, ftype):
+@click.option(
+    '-u',
+    '--url',
+    'url',
+    help='URL to the base installation of bepasty',
+    default='http://localhost:5000')
+@click.option(
+    '-t',
+    '--type',
+    'ftype',
+    help='Filetype for piped input. ' +
+    'Specified as file extension. E.g. png, txt, mp3...' +
+    ' If omitted, filetype will be destinguised by filename')
+def main(token, fileobj, fname, url, ftype):
 
     if fileobj:
         fileobj = open(fileobj, 'rb')
@@ -34,15 +51,15 @@ def main(token, fileobj, fname,url, ftype):
         stdin = False
 
     else:
-        # tried to write stdin in tempfile and run guess_file, but guess_file
-        # only seem to look on the file extension ...
-        #tmpfile = NamedTemporaryFile(delete=False)
+        #  tried to write stdin in tempfile and run guess_file, but guess_file
+        #  only seem to look on the file extension ...
+        # tmpfile = NamedTemporaryFile(delete=False)
         fileobj = click.get_binary_stream('stdin')
         if not fname:
             fname = ''
-            #fname = tmpfile.name
-        #tmpfile.write(fileobj.read())
-        #tmpfile.close()
+            # fname = tmpfile.name
+        # tmpfile.write(fileobj.read())
+        # tmpfile.close()
         stdin = True
 
     if not ftype:
@@ -50,7 +67,7 @@ def main(token, fileobj, fname,url, ftype):
         ftype, enc = guess_type(fname)
         print('guessed filetype: {}'.format(ftype))
         if not ftype:
-            #ftype = 'application/octet-stream'
+            # ftype = 'application/octet-stream'
             ftype = 'text/plain'
     else:
         print('using pre-defined filetype {}'.format(ftype))
@@ -71,32 +88,42 @@ def main(token, fileobj, fname,url, ftype):
                 filesize = offset + raw_data_size + 1
 
         headers = {
-            'content-range': ('bytes %d-%d/%d' % (offset, offset+raw_data_size-1, filesize)),
+            'content-range': ('bytes %d-%d/%d' %
+                              (offset, offset + raw_data_size - 1, filesize)),
             'content-type': ftype,
             'content-filename': fname,
-            }
+        }
         headers['Content-Length'] = filesize
         if not trans_id == '':
             headers['Transaction-ID'] = trans_id
-        response = requests.post('{}/apis/rest/items'.format(url), data=payload, headers=headers, auth=('user',token))
+        response = requests.post(
+            '{}/apis/rest/items'.format(url),
+            data=payload,
+            headers=headers,
+            auth=(
+                'user',
+                token))
         offset = offset + raw_data_size
-        if not response.status_code in [200, 201]:
-            print('An error ocurred: %s - %s' % (response.text, response.status_code))
+        if response.status_code not in [200, 201]:
+            print(
+                'An error ocurred: %s - %s' %
+                (response.text, response.status_code))
             return
         elif response.status_code == 200:
-            sys.stdout.write('\r%d Bytes already uploaded. That makes %d %% from %d Bytes' % ((offset/8), ((offset*100)/filesize), (filesize/8)))
+            sys.stdout.write(
+                '\r%d Bytes already uploaded. That makes %d %% from %d Bytes' %
+                ((offset / 8), ((offset * 100) / filesize), (filesize / 8)))
         elif response.status_code == 201:
+            loc = response.headers['Content-Location']
             print('\nFile sucessfully uploaded and can be found here:')
-            print('{}{}'.format(url,response.headers['Content-Location']))
-            print('{}/{}'.format(url,response.headers['Content-Location'].split('/')[-1]))
-
+            print('{}{}'.format(url, loc))
+            print('{}/{}'.format(url, loc.split('/')[-1]))
 
         if response.headers['Transaction-ID']:
             trans_id = response.headers['Transaction-ID']
 
         if raw_data_size < read_size:
             break
-
 
 
 if __name__ == '__main__':
