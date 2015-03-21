@@ -23,7 +23,7 @@ setup(
         'requests',
     ),
     entry_points={
-        'console_scripts':[
+        'console_scripts': [
             'bepasty-cli = bepasty_cli.cli:main'
         ]
     }
