@@ -1,5 +1,8 @@
+#!/usr/bin/env python
+"""
+Bepasty command line client
+"""
 from setuptools import setup, find_packages
-
 setup(
     name='bepasty-client-cli',
     version='0.2',
@@ -23,7 +26,7 @@ setup(
         'requests',
     ),
     entry_points={
-        'console_scripts':[
+        'console_scripts': [
             'bepasty-cli = bepasty_cli.cli:main'
         ]
     }

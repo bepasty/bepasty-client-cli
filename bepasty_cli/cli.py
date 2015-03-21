@@ -41,7 +41,11 @@ import click
     help='Filetype for piped input. ' +
     'Specified as file extension. E.g. png, txt, mp3...' +
     ' If omitted, filetype will be destinguised by filename')
+
 def main(token, fileobj, fname, url, ftype):
+    """
+    determine mime-type and upload to bepasty
+    """
 
     if fileobj:
         fileobj = open(fileobj, 'rb')
@@ -64,7 +68,7 @@ def main(token, fileobj, fname, url, ftype):
 
     if not ftype:
         # guess_type sucks buttocks, better use python-magic?
-        ftype, enc = guess_type(fname)
+        ftype, _ = guess_type(fname)
         print('guessed filetype: {}'.format(ftype))
         if not ftype:
             # ftype = 'application/octet-stream'
