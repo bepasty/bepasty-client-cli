@@ -6,7 +6,6 @@
 bepasty-server commandline interface
 """
 
-# for grandpa python
 from __future__ import print_function
 import os
 import sys
@@ -18,7 +17,6 @@ from io import BytesIO
 
 import requests
 
-# from tempfile import NamedTemporaryFile
 
 import click
 
@@ -62,9 +60,6 @@ def main(token, fileobj, fname, url, ftype):
         fileobj = BytesIO(click.get_binary_stream('stdin').read())
         if not fname:
             fname = ''
-            # fname = tmpfile.name
-        # tmpfile.write(fileobj.read())
-        # tmpfile.close()
         stdin = True
 
     if not ftype:
