@@ -79,10 +79,10 @@ def main(token, filename, fname, url, ftype):
         payload = base64.b64encode(raw_data)
 
         headers = {
-            'content-range': ('bytes %d-%d/%d' %
+            'Content-Range': ('bytes %d-%d/%d' %
                               (offset, offset + raw_data_size - 1, filesize)),
-            'content-type': ftype,
-            'content-filename': fname,
+            'Content-Type': ftype,
+            'Content-Filename': fname,
             'Content-Length': len(payload),  # rfc 2616 14.16
         }
         if trans_id != '':
