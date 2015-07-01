@@ -48,12 +48,12 @@ def main(token, filename, fname, url, ftype):
         filesize = os.path.getsize(filename)
         if not fname:
             fname = filename
-        stdin = False
     else:
-        fileobj = BytesIO(click.get_binary_stream('stdin').read())
+        data = click.get_binary_stream('stdin').read()  # XXX evil for big stuff
+        fileobj = BytesIO(data)
+        filesize = len(data)
         if not fname:
             fname = ''
-        stdin = True
 
     if not ftype:
         mime = magic.Magic(mime=True)
@@ -72,23 +72,19 @@ def main(token, filename, fname, url, ftype):
     while True:
         read_size = 1 * 1024 * 1024
         raw_data = fileobj.read(read_size)
+        if not raw_data:
+            break  # EOF
         raw_data_size = len(raw_data)
 
         payload = base64.b64encode(raw_data)
-
-        if stdin:
-            if raw_data_size < read_size:
-                filesize = offset + raw_data_size
-            else:
-                filesize = offset + raw_data_size + 1
 
         headers = {
             'content-range': ('bytes %d-%d/%d' %
                               (offset, offset + raw_data_size - 1, filesize)),
             'content-type': ftype,
             'content-filename': fname,
+            'Content-Length': len(payload),  # rfc 2616 14.16
         }
-        headers['Content-Length'] = filesize
         if trans_id != '':
             headers['Transaction-ID'] = trans_id
         response = requests.post(
@@ -96,27 +92,25 @@ def main(token, filename, fname, url, ftype):
             data=payload,
             headers=headers,
             auth=('user', token))
-        offset = offset + raw_data_size
-        if response.status_code not in [200, 201]:
-            print(
-                'An error occurred: %s - %s' %
-                (response.text, response.status_code))
-            return
-        elif response.status_code == 200:
+        offset += raw_data_size
+        if response.status_code in (200, 201):
             sys.stdout.write(
-                '\r%d Bytes already uploaded. That makes %d %% from %d Bytes' %
-                ((offset / 8), ((offset * 100) / filesize), (filesize / 8)))
+                '\r%dB (%d%%) uploaded of %dB total.' %
+                (offset, offset * 100 / filesize, filesize))
+        if response.status_code == 200:
+            pass
         elif response.status_code == 201:
             loc = response.headers['Content-Location']
             print('\nFile was successfully uploaded and can be found here:')
             print('{}{}'.format(url, loc))
             print('{}/{}'.format(url, loc.split('/')[-1]))
+        else:
+            print('An error occurred: %d %s' %
+                  (response.status_code, response.text))
+            return
 
         if response.headers['Transaction-ID']:
             trans_id = response.headers['Transaction-ID']
-
-        if raw_data_size < read_size:
-            break
 
 
 if __name__ == '__main__':
