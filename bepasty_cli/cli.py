@@ -37,7 +37,7 @@ import requests
     '--type',
     'ftype',
     help='Filetype for piped input. ' +
-    'Specified as file extension. E.g. png, txt, mp3. ' +
+    'Give the value for the Content-Type header here, e.g. text/plain or image/png. ' +
     'If omitted, filetype will be determined by magic')
 def main(token, filename, fname, url, ftype):
     """
