@@ -11,7 +11,11 @@ from __future__ import print_function
 import os
 import sys
 import base64
-from mimetypes import guess_type
+import magic
+
+# starting py2.6
+from io import BytesIO
+
 import requests
 
 # from tempfile import NamedTemporaryFile
@@ -55,10 +59,7 @@ def main(token, fileobj, fname, url, ftype):
         stdin = False
 
     else:
-        #  tried to write stdin in tempfile and run guess_file, but guess_file
-        #  only seem to look on the file extension ...
-        # tmpfile = NamedTemporaryFile(delete=False)
-        fileobj = click.get_binary_stream('stdin')
+        fileobj = BytesIO(click.get_binary_stream('stdin').read())
         if not fname:
             fname = ''
             # fname = tmpfile.name
@@ -67,12 +68,15 @@ def main(token, fileobj, fname, url, ftype):
         stdin = True
 
     if not ftype:
-        # guess_type sucks buttocks, better use python-magic?
-        ftype, _ = guess_type(fname)
-        print('guessed filetype: {}'.format(ftype))
+        mime = magic.Magic(mime=True)
+        ftype= mime.from_buffer(fileobj.read(1024)).decode()
+        fileobj.seek(0)
         if not ftype:
-            # ftype = 'application/octet-stream'
+            print('falling back to {}'.format(ftype))
             ftype = 'text/plain'
+        else:
+            print('guessed filetype: {}'.format(ftype))
+
     else:
         print('using pre-defined filetype {}'.format(ftype))
 

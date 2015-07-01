@@ -24,6 +24,7 @@ setup(
     install_requires=(
         'click',
         'requests',
+        'python-magic',
     ),
     entry_points={
         'console_scripts': [
