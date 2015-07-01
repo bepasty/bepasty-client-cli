@@ -18,7 +18,7 @@ import requests
 
 
 @click.command()
-@click.argument('fileobj', nargs=1, required=False)
+@click.argument('filename', nargs=1, required=False)
 @click.option(
     '-p',
     '--pass',
@@ -39,15 +39,15 @@ import requests
     help='Filetype for piped input. ' +
     'Specified as file extension. E.g. png, txt, mp3. ' +
     'If omitted, filetype will be determined by magic')
-def main(token, fileobj, fname, url, ftype):
+def main(token, filename, fname, url, ftype):
     """
     determine mime-type and upload to bepasty
     """
-    if fileobj:
-        fileobj = open(fileobj, 'rb')
-        filesize = os.path.getsize(os.path.abspath(fileobj.name))
+    if filename:
+        fileobj = open(filename, 'rb')
+        filesize = os.path.getsize(filename)
         if not fname:
-            fname = fileobj.name
+            fname = filename
         stdin = False
     else:
         fileobj = BytesIO(click.get_binary_stream('stdin').read())
