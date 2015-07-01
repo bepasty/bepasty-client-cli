@@ -3,24 +3,18 @@
 # License: BSD 2-clause, see LICENSE for details.
 
 """
-bepasty-server commandline interface
+commandline client for bepasty-server
 """
 
-# for grandpa python
 from __future__ import print_function
+import base64
+from io import BytesIO
 import os
 import sys
-import base64
-import magic
-
-# starting py2.6
-from io import BytesIO
-
-import requests
-
-# from tempfile import NamedTemporaryFile
 
 import click
+import magic
+import requests
 
 
 @click.command()
@@ -30,55 +24,48 @@ import click
     '--pass',
     'token',
     default='',
-    help='The token to authenticate yourself with the bepasty server')
-@click.option('-n', '--name', 'fname', help='Filename for piped input.')
+    help='The token to authenticate yourself to the bepasty server')
 @click.option(
     '-u',
     '--url',
     'url',
-    help='URL to the base installation of bepasty',
+    help='base URL of the bepasty server',
     default='http://localhost:5000')
+@click.option('-n', '--name', 'fname', help='Filename for piped input.')
 @click.option(
     '-t',
     '--type',
     'ftype',
     help='Filetype for piped input. ' +
-    'Specified as file extension. E.g. png, txt, mp3...' +
-    ' If omitted, filetype will be destinguised by filename')
-
+    'Specified as file extension. E.g. png, txt, mp3. ' +
+    'If omitted, filetype will be determined by magic')
 def main(token, fileobj, fname, url, ftype):
     """
     determine mime-type and upload to bepasty
     """
-
     if fileobj:
         fileobj = open(fileobj, 'rb')
         filesize = os.path.getsize(os.path.abspath(fileobj.name))
         if not fname:
             fname = fileobj.name
         stdin = False
-
     else:
         fileobj = BytesIO(click.get_binary_stream('stdin').read())
         if not fname:
             fname = ''
-            # fname = tmpfile.name
-        # tmpfile.write(fileobj.read())
-        # tmpfile.close()
         stdin = True
 
     if not ftype:
         mime = magic.Magic(mime=True)
-        ftype= mime.from_buffer(fileobj.read(1024)).decode()
+        ftype = mime.from_buffer(fileobj.read(1024)).decode()
         fileobj.seek(0)
         if not ftype:
             print('falling back to {}'.format(ftype))
             ftype = 'text/plain'
         else:
             print('guessed filetype: {}'.format(ftype))
-
     else:
-        print('using pre-defined filetype {}'.format(ftype))
+        print('using given filetype {}'.format(ftype))
 
     offset = 0
     trans_id = ''
@@ -102,19 +89,17 @@ def main(token, fileobj, fname, url, ftype):
             'content-filename': fname,
         }
         headers['Content-Length'] = filesize
-        if not trans_id == '':
+        if trans_id != '':
             headers['Transaction-ID'] = trans_id
         response = requests.post(
             '{}/apis/rest/items'.format(url),
             data=payload,
             headers=headers,
-            auth=(
-                'user',
-                token))
+            auth=('user', token))
         offset = offset + raw_data_size
         if response.status_code not in [200, 201]:
             print(
-                'An error ocurred: %s - %s' %
+                'An error occurred: %s - %s' %
                 (response.text, response.status_code))
             return
         elif response.status_code == 200:
@@ -123,7 +108,7 @@ def main(token, fileobj, fname, url, ftype):
                 ((offset / 8), ((offset * 100) / filesize), (filesize / 8)))
         elif response.status_code == 201:
             loc = response.headers['Content-Location']
-            print('\nFile sucessfully uploaded and can be found here:')
+            print('\nFile was successfully uploaded and can be found here:')
             print('{}{}'.format(url, loc))
             print('{}/{}'.format(url, loc.split('/')[-1]))
 
