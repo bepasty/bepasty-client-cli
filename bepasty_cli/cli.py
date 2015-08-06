@@ -20,27 +20,45 @@ import requests
 
 @click.command()
 @click.argument('filename', nargs=1, required=False)
-@click.option(
-    '-p',
-    '--pass',
-    'token',
-    default='',
-    help='The token to authenticate yourself to the bepasty server')
-@click.option(
-    '-u',
-    '--url',
-    'url',
-    help='base URL of the bepasty server',
-    default='http://localhost:5000')
-@click.option('-n', '--name', 'fname', help='Filename for piped input.')
-@click.option(
-    '-t',
-    '--type',
-    'ftype',
-    help='Filetype for piped input. ' +
-    'Give the value for the Content-Type header here, e.g. text/plain or image/png. ' +
-    'If omitted, filetype will be determined by magic')
-def main(token, filename, fname, url, ftype):
+@click.option( '-p', '--pass', 'token',
+        default='',
+        help='The token to authenticate yourself to the bepasty server')
+@click.option( '-u', '--url', 'url',
+        default='http://localhost:5000',
+        help='base URL of the bepasty server')
+@click.option('-n', '--name', 'fname',
+        help='Filename for piped input.')
+@click.option('-l', '--list', 'list_pastes',
+        is_flag=True,
+        help='Lists all pastes on server (requires LIST permissions)')
+@click.option( '-t', '--type', 'ftype',
+        help='Filetype for piped input. ' +
+        'Give the value for the Content-Type header here, e.g. text/plain or image/png. ' +
+        'If omitted, filetype will be determined by magic')
+def main(token, filename, fname, url, ftype, list_pastes):
+    if list_pastes:
+        print_list(token,url)
+    else:
+        upload(token,filename,fname,url,ftype)
+
+
+def print_list(token,url):
+    from datetime import datetime
+    response = requests.get(
+        '{}/apis/rest/items'.format(url),
+        auth=('user', token))
+    for k,v in response.json().items():
+        meta = v['file-meta']
+        if not meta:
+            print("{:8}: BROKEN PASTE".format(k))
+        else:
+            print("{:8}: {} at {}".format(
+                meta['filename'],
+                "{}B".format(meta['size']) if meta['complete'] else 'INCOMPLETE',
+                datetime.fromtimestamp(meta['timestamp-upload']).strftime('%Y-%m-%d')))
+
+
+def upload(token, filename, fname, url, ftype):
     """
     determine mime-type and upload to bepasty
     """
