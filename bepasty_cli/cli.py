@@ -50,6 +50,7 @@ def main(token, filename, fname, url, ftype):
         filesize = os.path.getsize(filename)
         if not fname:
             fname = filename
+        stdin = False
     else:
         fileobj = click.get_binary_stream('stdin')
         if not fname:
@@ -81,6 +82,11 @@ def main(token, filename, fname, url, ftype):
 
         if not raw_data:
             break  # EOF
+        if stdin:
+            if raw_data_size < read_size:
+                filesize = offset + raw_data_size
+            else:
+                filesize = offset + raw_data_size + 1
 
         payload = base64.b64encode(raw_data)
 
