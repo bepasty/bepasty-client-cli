@@ -48,7 +48,7 @@ def main(token, fileobj, fname, url, ftype):
     """
     determine mime-type and upload to bepasty
     """
-
+    read_size = 1 * 1024 * 1024
     if fileobj:
         fileobj = open(fileobj, 'rb')
         filesize = os.path.getsize(os.path.abspath(fileobj.name))
@@ -57,15 +57,17 @@ def main(token, fileobj, fname, url, ftype):
         stdin = False
 
     else:
-        fileobj = BytesIO(click.get_binary_stream('stdin').read())
+        fileobj = click.get_binary_stream('stdin')
         if not fname:
             fname = ''
         stdin = True
 
+    # we use the first chunk to determine the filetype if not set
+    first_chunk = fileobj.read(read_size)
     if not ftype:
         mime = magic.Magic(mime=True)
-        ftype= mime.from_buffer(fileobj.read(1024)).decode()
-        fileobj.seek(0)
+        ftype= mime.from_buffer(first_chunk).decode()
+
         if not ftype:
             print('falling back to {}'.format(ftype))
             ftype = 'text/plain'
@@ -78,8 +80,10 @@ def main(token, fileobj, fname, url, ftype):
     offset = 0
     trans_id = ''
     while True:
-        read_size = 1 * 1024 * 1024
-        raw_data = fileobj.read(read_size)
+        if not offset:
+            raw_data = first_chunk
+        else:
+            raw_data = fileobj.read(read_size)
         raw_data_size = len(raw_data)
 
         payload = base64.b64encode(raw_data)
