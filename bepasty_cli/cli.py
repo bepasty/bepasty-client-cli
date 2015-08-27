@@ -9,6 +9,7 @@ commandline client for bepasty-server
 from __future__ import print_function
 import base64
 from io import BytesIO
+
 import os
 import sys
 
@@ -43,22 +44,25 @@ def main(token, filename, fname, url, ftype):
     """
     determine mime-type and upload to bepasty
     """
+    read_size = 1 * 1024 * 1024
     if filename:
         fileobj = open(filename, 'rb')
         filesize = os.path.getsize(filename)
         if not fname:
             fname = filename
+        stdin = False
     else:
-        data = click.get_binary_stream('stdin').read()  # XXX evil for big stuff
-        fileobj = BytesIO(data)
-        filesize = len(data)
+        fileobj = click.get_binary_stream('stdin')
         if not fname:
             fname = ''
+        stdin = True
 
+    # we use the first chunk to determine the filetype if not set
+    first_chunk = fileobj.read(read_size)
     if not ftype:
         mime = magic.Magic(mime=True)
-        ftype = mime.from_buffer(fileobj.read(1024)).decode()
-        fileobj.seek(0)
+        ftype= mime.from_buffer(first_chunk).decode()
+
         if not ftype:
             print('falling back to {}'.format(ftype))
             ftype = 'text/plain'
@@ -70,11 +74,19 @@ def main(token, filename, fname, url, ftype):
     offset = 0
     trans_id = ''
     while True:
-        read_size = 1 * 1024 * 1024
-        raw_data = fileobj.read(read_size)
+        if not offset:
+            raw_data = first_chunk
+        else:
+            raw_data = fileobj.read(read_size)
+        raw_data_size = len(raw_data)
+
         if not raw_data:
             break  # EOF
-        raw_data_size = len(raw_data)
+        if stdin:
+            if raw_data_size < read_size:
+                filesize = offset + raw_data_size
+            else:
+                filesize = offset + raw_data_size + 1
 
         payload = base64.b64encode(raw_data)
 
