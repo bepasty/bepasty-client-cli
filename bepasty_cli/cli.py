@@ -40,7 +40,12 @@ import requests
     help='Filetype for piped input. ' +
     'Give the value for the Content-Type header here, e.g. text/plain or image/png. ' +
     'If omitted, filetype will be determined by magic')
-def main(token, filename, fname, url, ftype):
+@click.option(
+    '-i',
+    '--insecure',
+    help='Disable SSL certificate validation',
+    is_flag=True)
+def main(token, filename, fname, url, ftype, insecure):
     """
     determine mime-type and upload to bepasty
     """
@@ -103,7 +108,8 @@ def main(token, filename, fname, url, ftype):
             '{}/apis/rest/items'.format(url),
             data=payload,
             headers=headers,
-            auth=('user', token))
+            auth=('user', token),
+            verify=(not insecure))
         offset += raw_data_size
         if response.status_code in (200, 201):
             sys.stdout.write(
