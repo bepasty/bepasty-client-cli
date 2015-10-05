@@ -20,45 +20,64 @@ import requests
 
 @click.command()
 @click.argument('filename', nargs=1, required=False)
-@click.option( '-p', '--pass', 'token',
-        default='',
-        help='The token to authenticate yourself to the bepasty server')
-@click.option( '-u', '--url', 'url',
-        default='http://localhost:5000',
-        help='base URL of the bepasty server')
-@click.option('-n', '--name', 'fname',
-        help='Filename for piped input.')
-@click.option('-l', '--list', 'list_pastes',
-        is_flag=True,
-        help='Lists all pastes on server (requires LIST permissions)')
-@click.option( '-t', '--type', 'ftype',
-        help='Filetype for piped input. ' +
-        'Give the value for the Content-Type header here, e.g. text/plain or image/png. ' +
-        'If omitted, filetype will be determined by magic')
-def main(token, filename, fname, url, ftype, list_pastes):
+@click.option(
+    '-p', '--pass', 'token',
+    default='',
+    help='The token to authenticate yourself to the bepasty server')
+@click.option(
+    '-u', '--url', 'url',
+    default='http://localhost:5000',
+    help='base URL of the bepasty server')
+@click.option(
+    '-n', '--name', 'fname',
+    help='Filename for piped input.')
+@click.option(
+    '-l', '--list', 'list_pastes',
+    is_flag=True,
+    help='Lists all pastes on server (requires LIST permissions)')
+@click.option(
+    '-t', '--type', 'ftype',
+    help='Filetype for piped input. ' +
+    'Give the value for the Content-Type header here, e.g. text/plain or image/png. ' +
+    'If omitted, filetype will be determined by magic')
+@click.option(
+    '-i',
+    '--insecure',
+    help='Disable SSL certificate validation',
+    is_flag=True)
+def main(token, filename, fname, url, ftype, list_pastes,insecure):
     if list_pastes:
-        print_list(token,url)
+        print_list(token,url,insecure)
     else:
-        upload(token,filename,fname,url,ftype)
+        upload(token,filename,fname,url,ftype,insecure)
 
 
-def print_list(token,url):
+def print_list(token,url,insecure):
     from datetime import datetime
-    response = requests.get(
-        '{}/apis/rest/items'.format(url),
-        auth=('user', token))
-    for k,v in response.json().items():
-        meta = v['file-meta']
-        if not meta:
-            print("{:8}: BROKEN PASTE".format(k))
-        else:
-            print("{:8}: {} at {}".format(
-                meta['filename'],
-                "{}B".format(meta['size']) if meta['complete'] else 'INCOMPLETE',
-                datetime.fromtimestamp(meta['timestamp-upload']).strftime('%Y-%m-%d')))
+    url = url.strip("/")
+    try:
+        response = requests.get(
+            '{}/apis/rest/items'.format(url),
+            auth=('user', token),verify=(not insecure))
+    except Exception as e:
+        print("Cannot request {}/api/rest/items".format(url))
+        print(e)
+    try:
+        for k,v in response.json().items():
+            meta = v['file-meta']
+            if not meta:
+                print("{:8}: BROKEN PASTE".format(k))
+            else:
+                print("{:8}: {} at {}".format(
+                    meta['filename'],
+                    "{}B".format(meta['size']) if meta['complete'] else 'INCOMPLETE',
+                    datetime.fromtimestamp(meta['timestamp-upload']).strftime('%Y-%m-%d')))
+    except Exception as e:
+        print("cannot load json from response: {}".format(e))
+        print("Original Response: {}".format(response))
 
 
-def upload(token, filename, fname, url, ftype):
+def upload(token, filename, fname, url, ftype, insecure):
     """
     determine mime-type and upload to bepasty
     """
@@ -121,7 +140,8 @@ def upload(token, filename, fname, url, ftype):
             '{}/apis/rest/items'.format(url),
             data=payload,
             headers=headers,
-            auth=('user', token))
+            auth=('user', token),
+            verify=(not insecure))
         offset += raw_data_size
         if response.status_code in (200, 201):
             sys.stdout.write(
