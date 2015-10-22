@@ -16,7 +16,7 @@ setup(
     description='Command Line Client for the Bepasty Pastebin',
     classifiers=[
         "Development Status :: 3 - Alpha",
-        "Environment :: Console,"
+        "Environment :: Console",
         "License :: OSI Approved :: BSD License",
         "Programming Language :: Python :: 2.7",
         "Programming Language :: Python :: 3",
