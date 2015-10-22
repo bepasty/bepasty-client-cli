@@ -32,7 +32,17 @@ import requests
     'url',
     help='base URL of the bepasty server',
     default='http://localhost:5000')
-@click.option('-n', '--name', 'fname', help='Filename for piped input.')
+@click.option(
+    '-n',
+    '--name',
+    'fname',
+    help='Filename for piped input.')
+@click.option(
+    '-l',
+    '--list',
+    'list_pastes',
+    is_flag=True,
+    help='Lists all pastes on server (requires LIST permissions)')
 @click.option(
     '-t',
     '--type',
@@ -45,7 +55,37 @@ import requests
     '--insecure',
     help='Disable SSL certificate validation',
     is_flag=True)
-def main(token, filename, fname, url, ftype, insecure):
+
+def main(token, filename, fname, url, ftype, list_pastes,insecure):
+    if list_pastes:
+        print_list(token,url,insecure)
+    else:
+        upload(token,filename,fname,url,ftype,insecure)
+
+def print_list(token,url,insecure):
+    from datetime import datetime
+    try:
+        response = requests.get(
+            '{}/apis/rest/items'.format(url),
+            auth=('user', token),verify=(not insecure))
+    except Exception as e:
+        print("Cannot request {}/api/rest/items".format(url))
+        print(e)
+    try:
+        for k,v in response.json().items():
+            meta = v['file-meta']
+            if not meta:
+                print("{:8}: BROKEN PASTE".format(k))
+            else:
+                print("{:8}: {} at {}".format(
+                    meta['filename'],
+                    "{}B".format(meta['size']) if meta['complete'] else 'INCOMPLETE',
+                    datetime.fromtimestamp(meta['timestamp-upload']).strftime('%Y-%m-%d')))
+    except Exception as e:
+        print("cannot load json from response: {}".format(e))
+        print("Original Response: {}".format(response))
+
+def upload(token, filename, fname, url, ftype, insecure):
     """
     determine mime-type and upload to bepasty
     """

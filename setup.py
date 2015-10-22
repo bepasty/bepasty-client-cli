@@ -7,7 +7,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='bepasty-client-cli',
-    version='0.2',
+    version='0.3.0',
     packages=find_packages(),
     url='https://github.com/bepasty/bepasty-client-cli',
     license='BSD 2-clause',
