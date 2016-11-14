@@ -135,11 +135,10 @@ def upload(token, filename, fname, url, ftype, insecure):
         payload = base64.b64encode(raw_data)
 
         headers = {
-            'Content-Range': ('bytes %d-%d/%d' %
-                              (offset, offset + raw_data_size - 1, filesize)),
+            'Content-Range': 'bytes %d-%d/%d' % (offset, offset + raw_data_size - 1, filesize),
             'Content-Type': ftype,
             'Content-Filename': fname,
-            'Content-Length': len(payload),  # rfc 2616 14.16
+            'Content-Length': str(len(payload)),  # rfc 2616 14.16
         }
         if trans_id != '':
             headers['Transaction-ID'] = trans_id
