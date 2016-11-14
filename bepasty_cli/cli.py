@@ -8,8 +8,6 @@ commandline client for bepasty-server
 
 from __future__ import print_function
 import base64
-from io import BytesIO
-
 import os
 import sys
 
@@ -55,24 +53,24 @@ import requests
     '--insecure',
     help='Disable SSL certificate validation',
     is_flag=True)
-
-def main(token, filename, fname, url, ftype, list_pastes,insecure):
+def main(token, filename, fname, url, ftype, list_pastes, insecure):
     if list_pastes:
-        print_list(token,url,insecure)
+        print_list(token, url, insecure)
     else:
-        upload(token,filename,fname,url,ftype,insecure)
+        upload(token, filename, fname, url, ftype, insecure)
 
-def print_list(token,url,insecure):
+
+def print_list(token, url, insecure):
     from datetime import datetime
     try:
         response = requests.get(
             '{}/apis/rest/items'.format(url),
-            auth=('user', token),verify=(not insecure))
+            auth=('user', token), verify=(not insecure))
     except Exception as e:
         print("Cannot request {}/api/rest/items".format(url))
         print(e)
     try:
-        for k,v in response.json().items():
+        for k, v in response.json().items():
             meta = v['file-meta']
             if not meta:
                 print("{:8}: BROKEN PASTE".format(k))
@@ -84,6 +82,7 @@ def print_list(token,url,insecure):
     except Exception as e:
         print("cannot load json from response: {}".format(e))
         print("Original Response: {}".format(response))
+
 
 def upload(token, filename, fname, url, ftype, insecure):
     """
@@ -106,7 +105,7 @@ def upload(token, filename, fname, url, ftype, insecure):
     first_chunk = fileobj.read(read_size)
     if not ftype:
         mime = magic.Magic(mime=True)
-        ftype= mime.from_buffer(first_chunk).decode()
+        ftype = mime.from_buffer(first_chunk).decode()
 
         if not ftype:
             print('falling back to {}'.format(ftype))
@@ -136,11 +135,10 @@ def upload(token, filename, fname, url, ftype, insecure):
         payload = base64.b64encode(raw_data)
 
         headers = {
-            'Content-Range': ('bytes %d-%d/%d' %
-                              (offset, offset + raw_data_size - 1, filesize)),
+            'Content-Range': 'bytes %d-%d/%d' % (offset, offset + raw_data_size - 1, filesize),
             'Content-Type': ftype,
             'Content-Filename': fname,
-            'Content-Length': len(payload),  # rfc 2616 14.16
+            'Content-Length': str(len(payload)),  # rfc 2616 14.16
         }
         if trans_id != '':
             headers['Transaction-ID'] = trans_id
