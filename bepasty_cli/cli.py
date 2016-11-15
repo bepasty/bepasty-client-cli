@@ -54,6 +54,7 @@ import requests
     help='Disable SSL certificate validation',
     is_flag=True)
 def main(token, filename, fname, url, ftype, list_pastes, insecure):
+    url = url.rstrip("/")
     if list_pastes:
         print_list(token, url, insecure)
     else:
@@ -93,7 +94,7 @@ def upload(token, filename, fname, url, ftype, insecure):
         fileobj = open(filename, 'rb')
         filesize = os.path.getsize(filename)
         if not fname:
-            fname = filename
+            fname = os.path.basename(filename)
         stdin = False
     else:
         fileobj = click.get_binary_stream('stdin')
