@@ -10,10 +10,12 @@ from __future__ import print_function
 import base64
 import os
 import sys
+import warnings
 
 import click
 import magic
 import requests
+from requests.packages.urllib3.exceptions import InsecureRequestWarning
 
 
 @click.command()
@@ -61,15 +63,29 @@ def main(token, filename, fname, url, ftype, list_pastes, insecure):
         upload(token, filename, fname, url, ftype, insecure)
 
 
+def _make_request(method, url, **kwargs):
+    func = getattr(requests, method)
+    try:
+        if kwargs.get('verify', False):
+            return func(url, **kwargs)
+        else:
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", category=InsecureRequestWarning)
+                return func(url, **kwargs)
+    except Exception as exc:
+        print("Cannot {} {}".format(method, url))
+        print(exc)
+        sys.exit(1)
+
+
 def print_list(token, url, insecure):
     from datetime import datetime
-    try:
-        response = requests.get(
-            '{}/apis/rest/items'.format(url),
-            auth=('user', token), verify=(not insecure))
-    except Exception as e:
-        print("Cannot request {}/api/rest/items".format(url))
-        print(e)
+    response = _make_request(
+        'get',
+        '{}/apis/rest/items'.format(url),
+        auth=('user', token),
+        verify=not insecure
+    )
     try:
         for k, v in response.json().items():
             meta = v['file-meta']
@@ -143,12 +159,14 @@ def upload(token, filename, fname, url, ftype, insecure):
         }
         if trans_id != '':
             headers['Transaction-ID'] = trans_id
-        response = requests.post(
+        response = _make_request(
+            'post',
             '{}/apis/rest/items'.format(url),
             data=payload,
             headers=headers,
             auth=('user', token),
-            verify=(not insecure))
+            verify=not insecure
+        )
         offset += raw_data_size
         if response.status_code in (200, 201):
             sys.stdout.write(
