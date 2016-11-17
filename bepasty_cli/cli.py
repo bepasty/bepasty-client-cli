@@ -125,8 +125,8 @@ def upload(token, filename, fname, url, ftype, insecure):
         ftype = mime.from_buffer(first_chunk).decode()
 
         if not ftype:
-            print('falling back to {}'.format(ftype))
             ftype = 'text/plain'
+            print('falling back to {}'.format(ftype))
         else:
             print('guessed filetype: {}'.format(ftype))
     else:
