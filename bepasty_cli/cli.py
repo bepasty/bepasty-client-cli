@@ -8,6 +8,7 @@ commandline client for bepasty-server
 
 from __future__ import print_function
 import base64
+import re
 import os
 import sys
 import warnings
@@ -18,7 +19,38 @@ import requests
 from requests.packages.urllib3.exceptions import InsecureRequestWarning
 
 
-@click.command()
+CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
+LIFETIME_CHOICES = (
+    'min', 'minutes', 'h', 'hours', 'd', 'days', 'w', 'weeks', 'm', 'months',
+    'y', 'years', 'f', 'forever'
+)
+LIFETIME_NAMES = (
+    'MINUTES', 'MINUTES', 'HOURS', 'HOURS', 'DAYS', 'DAYS', 'WEEKS', 'WEEKS',
+    'MONTHS', 'MONTHS', 'YEARS', 'YEARS', 'FOREVER', 'FOREVER'
+)
+LIFETIME_MAPPING = dict(zip(LIFETIME_CHOICES, LIFETIME_NAMES))
+
+
+class LifetimeParamType(click.ParamType):
+    name = 'lifetime'
+    lifetime_regex = re.compile(r'^(\d*) *({})$'.format('|'.join(choice for choice in LIFETIME_CHOICES)))
+
+    def convert(self, value, param, ctx):
+        m = self.lifetime_regex.match(value)
+        if m:
+            result = m.groups()
+            result = result[0].lstrip('0'), result[1]
+            if not result[0]:
+                if result[1] in ['f', 'forever']:
+                    result = '1', result[1]
+                else:
+                    self.fail('Multiplier for the lifetime argument must be a positive integer.', param, ctx)
+            return result
+        else:
+            self.fail('"%s" is not a valid lifetime.' % value, param, ctx)
+
+
+@click.command(context_settings=CONTEXT_SETTINGS)
 @click.argument('filename', nargs=1, required=False)
 @click.option(
     '-p',
@@ -38,6 +70,15 @@ from requests.packages.urllib3.exceptions import InsecureRequestWarning
     'fname',
     help='Filename for piped input.')
 @click.option(
+    '-L',
+    '--lifetime',
+    type=LifetimeParamType(),
+    default='1f',
+    help='Lifetime for the file that is uploaded. Example: "-L 2d" (two days). If this '
+         'option is not set, the uploads lifetime is "forever". Multiplier has to be '
+         'a positive integer, Unit has to be one of these: "min" (minutes), "h" (hours), '
+         '"d" (days), "w" (weeks), "m" (months), "y" (years), "f" (forever).')
+@click.option(
     '-l',
     '--list',
     'list_pastes',
@@ -55,12 +96,14 @@ from requests.packages.urllib3.exceptions import InsecureRequestWarning
     '--insecure',
     help='Disable SSL certificate validation',
     is_flag=True)
-def main(token, filename, fname, url, ftype, list_pastes, insecure):
+def main(token, filename, fname, url, ftype, list_pastes, insecure, lifetime):
     url = url.rstrip("/")
+    lifetime = (lifetime[0], LIFETIME_MAPPING[lifetime[1]])
+
     if list_pastes:
         print_list(token, url, insecure)
     else:
-        upload(token, filename, fname, url, ftype, insecure)
+        upload(token, filename, fname, url, ftype, insecure, lifetime)
 
 
 def _make_request(method, url, **kwargs):
@@ -101,7 +144,7 @@ def print_list(token, url, insecure):
         print("Original Response: {}".format(response))
 
 
-def upload(token, filename, fname, url, ftype, insecure):
+def upload(token, filename, fname, url, ftype, insecure, lifetime):
     """
     determine mime-type and upload to bepasty
     """
@@ -156,6 +199,8 @@ def upload(token, filename, fname, url, ftype, insecure):
             'Content-Type': ftype,
             'Content-Filename': fname,
             'Content-Length': str(len(payload)),  # rfc 2616 14.16
+            'Maxlife-Unit': lifetime[1],
+            'Maxlife-Value': str(lifetime[0]),
         }
         if trans_id != '':
             headers['Transaction-ID'] = trans_id
