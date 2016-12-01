@@ -11,7 +11,14 @@ import base64
 import re
 import os
 import sys
+import errno
+import codecs
 import warnings
+try:
+    from ConfigParser import SafeConfigParser as ConfigParser
+except ImportError:
+    # Python 3
+    from configparser import ConfigParser
 
 import click
 import magic
@@ -29,6 +36,13 @@ LIFETIME_NAMES = (
     'MONTHS', 'MONTHS', 'YEARS', 'YEARS', 'FOREVER', 'FOREVER'
 )
 LIFETIME_MAPPING = dict(zip(LIFETIME_CHOICES, LIFETIME_NAMES))
+CONFIG_DEFAULTS = dict(
+    token='',
+    url='',
+    lifetime='1f',
+    insecure=False
+)
+CONFIG_FILENAME = click.get_app_dir('bepasty-client-cli')
 
 
 class LifetimeParamType(click.ParamType):
@@ -50,20 +64,70 @@ class LifetimeParamType(click.ParamType):
             self.fail('"%s" is not a valid lifetime.' % value, param, ctx)
 
 
+def setup_config_parser(override=None):
+    if not override:
+        override = dict()
+    config = ConfigParser()
+    config.add_section('bepasty-client-cli')
+    for k, v in CONFIG_DEFAULTS.items():
+        v = override.get(k, v)
+        config.set('bepasty-client-cli', k, str(v))
+    return config
+
+
+def write_configuration_file(config):
+    print('Writing configuration to "{}".'.format(CONFIG_FILENAME))
+    try:
+        os.makedirs(os.path.dirname(CONFIG_FILENAME), 750)
+    except OSError as exc:
+        if exc.errno != errno.EEXIST:
+            print(exc)
+            sys.exit(1)
+    with codecs.open(CONFIG_FILENAME, 'w', 'utf8') as fp:
+        config.write(fp)
+
+
+def setup_configuration():
+    if any(option in sys.argv for option in ('-h', '--help', '--write-config')):
+        # allow help message with faulty configuration file
+        # allow to overwrite (faulty) configuration file
+        return CONFIG_DEFAULTS
+
+    config = setup_config_parser()
+    if not config.read([CONFIG_FILENAME]):
+        write_configuration_file(config)
+    res = dict()
+    for option in CONFIG_DEFAULTS.keys():
+        if option == 'insecure':
+            try:
+                res[option] = config.getboolean('bepasty-client-cli', option)
+            except ValueError:
+                print('Error: Value for "{}" in {} must be one of {}.'.format(
+                    option,
+                    CONFIG_FILENAME,
+                    ', '.join(('1', 'yes', 'true', 'on', '0', 'no', 'false', 'off'))))
+                sys.exit(1)
+        else:
+            res[option] = config.get('bepasty-client-cli', option)
+    return res
+
+configuration = setup_configuration()
+
+
 @click.command(context_settings=CONTEXT_SETTINGS)
 @click.argument('filename', nargs=1, required=False)
 @click.option(
     '-p',
     '--pass',
     'token',
-    default='',
+    default=configuration['token'],
     help='The token to authenticate yourself to the bepasty server')
 @click.option(
     '-u',
     '--url',
     'url',
     help='base URL of the bepasty server',
-    default='http://localhost:5000')
+    default=configuration['url'])
 @click.option(
     '-n',
     '--name',
@@ -73,7 +137,7 @@ class LifetimeParamType(click.ParamType):
     '-L',
     '--lifetime',
     type=LifetimeParamType(),
-    default='1f',
+    default=configuration['lifetime'],
     help='Lifetime for the file that is uploaded. Example: "-L 2d" (two days). If this '
          'option is not set, the uploads lifetime is "forever". Multiplier has to be '
          'a positive integer, Unit has to be one of these: "min" (minutes), "h" (hours), '
@@ -95,9 +159,23 @@ class LifetimeParamType(click.ParamType):
     '-i',
     '--insecure',
     help='Disable SSL certificate validation',
-    is_flag=True)
-def main(token, filename, fname, url, ftype, list_pastes, insecure, lifetime):
+    is_flag=True,
+    default=configuration['insecure'])
+@click.option(
+    '--write-config',
+    help='Write current command line arguments and defaults to configuration file '
+         '{} and exit.'.format(CONFIG_FILENAME),
+    is_flag=True,
+    default=False)
+def main(token, filename, fname, url, ftype, list_pastes, insecure, lifetime, write_config):
     url = url.rstrip("/")
+    if write_config:
+        lifetime = "".join(lifetime)
+        write_configuration_file(setup_config_parser(locals()))
+        sys.exit(0)
+    if not url:
+        print('Please supply the URL of the bepasty server.')
+        sys.exit(1)
     lifetime = (lifetime[0], LIFETIME_MAPPING[lifetime[1]])
 
     if list_pastes:
