@@ -10,15 +10,16 @@ from __future__ import print_function
 import base64
 import re
 import os
+import pwd
 import sys
 import errno
 import codecs
 import warnings
 try:
-    from ConfigParser import SafeConfigParser as ConfigParser
+    from ConfigParser import SafeConfigParser as ConfigParser, Error as ConfigParserError
 except ImportError:
     # Python 3
-    from configparser import ConfigParser
+    from configparser import ConfigParser, Error as ConfigParserError
 
 import click
 import magic
@@ -75,43 +76,51 @@ def setup_config_parser(override=None):
     return config
 
 
-def write_configuration_file(config):
-    print('Writing configuration to "{}".'.format(CONFIG_FILENAME))
+def write_configuration_file(config, filename=CONFIG_FILENAME):
+    click.echo('Writing configuration to "{}".'.format(filename))
     try:
-        os.makedirs(os.path.dirname(CONFIG_FILENAME), 750)
-    except OSError as exc:
+        os.makedirs(os.path.dirname(filename), 750)
+    except EnvironmentError as exc:
         if exc.errno != errno.EEXIST:
-            print(exc)
-            sys.exit(1)
-    with codecs.open(CONFIG_FILENAME, 'w', 'utf8') as fp:
+            raise click.ClickException(str(exc))
+    with codecs.open(filename, 'w', 'utf8') as fp:
         config.write(fp)
 
 
-def setup_configuration():
+def setup_configuration(ctx, param, value):
     if any(option in sys.argv for option in ('-h', '--help', '--write-config')):
         # allow help message with faulty configuration file
         # allow to overwrite (faulty) configuration file
-        return CONFIG_DEFAULTS
+        ctx.default_map = CONFIG_DEFAULTS
+        return value
 
     config = setup_config_parser()
-    if not config.read([CONFIG_FILENAME]):
-        write_configuration_file(config)
-    res = dict()
+    if value and not os.path.exists(value):
+        raise click.UsageError('Cannot read configuration file "{}".'.format(value))
+    try:
+        config.read([value or CONFIG_FILENAME])
+    except ConfigParserError as exc:
+        raise click.UsageError('Error in configuration file: {}'.format(exc))
+    ctx.default_map = dict()
     for option in CONFIG_DEFAULTS.keys():
         if option == 'insecure':
             try:
-                res[option] = config.getboolean('bepasty-client-cli', option)
+                ctx.default_map[option] = config.getboolean('bepasty-client-cli', option)
             except ValueError:
-                print('Error: Value for "{}" in {} must be one of {}.'.format(
+                raise click.UsageError('Error: Value for "{}" in {} must be one of {}.'.format(
                     option,
                     CONFIG_FILENAME,
                     ', '.join(('1', 'yes', 'true', 'on', '0', 'no', 'false', 'off'))))
-                sys.exit(1)
         else:
-            res[option] = config.get('bepasty-client-cli', option)
-    return res
+            ctx.default_map[option] = config.get('bepasty-client-cli', option)
+    return value
 
-configuration = setup_configuration()
+
+def shorten_homepath(homepath):
+    try:
+        return homepath.replace(pwd.getpwuid(os.getuid()).pw_dir, '~', 1)
+    except:
+        return homepath
 
 
 @click.command(context_settings=CONTEXT_SETTINGS)
@@ -120,14 +129,12 @@ configuration = setup_configuration()
     '-p',
     '--pass',
     'token',
-    default=configuration['token'],
     help='The token to authenticate yourself to the bepasty server')
 @click.option(
     '-u',
     '--url',
     'url',
-    help='base URL of the bepasty server',
-    default=configuration['url'])
+    help='base URL of the bepasty server')
 @click.option(
     '-n',
     '--name',
@@ -137,7 +144,6 @@ configuration = setup_configuration()
     '-L',
     '--lifetime',
     type=LifetimeParamType(),
-    default=configuration['lifetime'],
     help='Lifetime for the file that is uploaded. Example: "-L 2d" (two days). If this '
          'option is not set, the uploads lifetime is "forever". Multiplier has to be '
          'a positive integer, Unit has to be one of these: "min" (minutes), "h" (hours), '
@@ -159,23 +165,29 @@ configuration = setup_configuration()
     '-i',
     '--insecure',
     help='Disable SSL certificate validation',
-    is_flag=True,
-    default=configuration['insecure'])
+    is_flag=True)
 @click.option(
     '--write-config',
-    help='Write current command line arguments and defaults to configuration file '
-         '{} and exit.'.format(CONFIG_FILENAME),
+    help='Write current command line arguments and defaults to configuration file and exit. Can be used '
+         'together with -c to specify file to write to.',
     is_flag=True,
     default=False)
-def main(token, filename, fname, url, ftype, list_pastes, insecure, lifetime, write_config):
+@click.option(
+    '-c',
+    '--config',
+    'configfile',
+    help='Specify configuration file to read from or write to (default is {}).'.format(shorten_homepath(CONFIG_FILENAME)),
+    callback=setup_configuration,
+    is_eager=True,
+    type=click.Path())
+def main(token, filename, fname, url, ftype, list_pastes, insecure, lifetime, write_config, configfile):
     url = url.rstrip("/")
     if write_config:
         lifetime = "".join(lifetime)
-        write_configuration_file(setup_config_parser(locals()))
+        write_configuration_file(setup_config_parser(locals()), configfile or CONFIG_FILENAME)
         sys.exit(0)
     if not url:
-        print('Please supply the URL of the bepasty server.')
-        sys.exit(1)
+        raise click.UsageError('Please supply the URL of the bepasty server.')
     lifetime = (lifetime[0], LIFETIME_MAPPING[lifetime[1]])
 
     if list_pastes:
