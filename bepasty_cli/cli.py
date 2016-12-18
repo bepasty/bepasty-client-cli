@@ -27,6 +27,7 @@ import requests
 try:
     from requests.packages.urllib3.exceptions import InsecureRequestWarning
 except ImportError:
+    # Debian has unbundled urllib3 from requests
     from urllib3.exceptions import InsecureRequestWarning
 
 
